@@ -1,54 +1,146 @@
 <?php
-//This code is called when the user will be redirected by us.
-//Authorize the application (Check the client id)
-//Authenticate the user
-//Once authorization and authentication is done, paas the Request Token, UserId, and DisplayName with the Request Url(Sent by us)
 
-//Get the Client Id and Redirecting URL from the URL
-$requestUrl = $this->getRequest()->getParam('redirectUri');
-$requestUrl = explode(',', $requestUrl);
-$requestUrl = implode('/', $requestUrl);
+/**
+ *
+ * LICENSE
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ *
+ * @author	Nikhil Kumar Gupta
+ * @license	http://www.gnu.org/licenses/gpl-3.0.txt
+ * @version	1
+ */
 
-$clientIdSent = $this->getRequest()->getParam('clientId');
+/**
+ * This file is used to Authenticate the user
+ * Authorize the Application
+ * Communication with the Resource Server
+ */
 
-$server = new Server();
-$clientIdStored = $server->getClientId();
 
-//Check the client id
-if($clientIdSent == $clientIdStored)
+/**
+ * Server
+ *
+ * @see Server
+ */
+require_once 'Server.php';
+
+/**
+ * Authenticate And Authorization
+ * Authenticate the user
+ * Authorize the Application
+ *
+ * @return Redirect the user
+ */
+function authenticateAndAuthorize()
 {
-	//Authenticate the user
-	$userIsAuthenticated = true;
-	if($userIsAuthenticated)
+	/**
+	 * Get the Redirect URL from the Request
+	 * Redirect URL is used to redirect the user, once the authentication
+	 * and authorization is done successfully
+	 */
+	$requestUrl = $this->getRequest()->getParam('redirectUri');
+	$requestUrl = explode(',', $requestUrl);
+	$requestUrl = implode('/', $requestUrl);
+
+	/**
+	 * Get the Client Id from the Request
+	 */
+	$clientIdSent = $this->getRequest()->getParam('clientId');
+
+	/**
+	 * Get the Client Id stored on the Server
+	 * @use Server::getClientId()
+	 */
+	$server = new Server();
+	$clientIdStored = $server->getClientId();
+
+	/**
+	 * Check the Client Id, got from the Request, with Client Id,
+	 * stored on the Server
+	 */
+	if($clientIdSent == $clientIdStored)
 	{
-		$code = null; //Or generate your own code algo.
-		$server->setCode($code); //If null is passed, Server generates its own code in a default way
-		$code = $server->getCode(); //Code is nothing but a request token. Will be used to generate Access Token
-		//Params must be a comma seperated string
-		$params['userId'] = 1;
-		$params['name'] = 'nik';
+		//Authenticate the user
+		/**
+		 * Authenticate the user
+		 * This part is handled by Authentication Server
+		 * Here, it is assumed that authentication is done
+		 * successfully
+		 */
+		$userIsAuthenticated = true;
+		if($userIsAuthenticated)
+		{
+			$code = null; //Or generate your own code algo.
+			$server->setCode($code); //If null is passed, Server generates its own code in a default way
+			$code = $server->getCode(); //Code is nothing but a request token. Will be used to generate Access Token
+
+			/**
+			 * Set the parameteres
+			 * userId and name are same that are stored on the Authentication Server
+			 * Here, it is assumed to 1 and 'nik' respectively
+			 */
+			$params['userId'] = 1;
+			$params['name'] = 'nik';
+		}
 	}
-}
-else
-{
-	//Code need not to be send. Can ignore the code parameter
-	$code = NULL;
-	$params['error'] = "Invalid Application Request";
-}
-$param = implode(',', $params);
-$this->_redirect($requestUrl . 'code/' . $code . '/param/' . $param);
+	else
+	{
+		//Code need not to be send. Can ignore the code parameter
+		$code = NULL;
+		$params['error'] = "Invalid Application Request";
+	}
+	//parameters must be in String format
+	$param = implode(',', $params);
 
-
-//This code is called where taashtime server will request the access token from zapak
-//Decode the code passed by taashtime
-$server = new Server();
-$server->setCode(base64_decode($_POST['code']));
-$server->setSecretKey('abcd1234');
-$server->setHashKey();
-$code = $server->checkHashKey($_POST['hashKey']);
-if($code)
-{
-	$accessToken = $server->getAccessToken();
+	//Redirect the user to the Redirection URL with adding code and params
+	$this->_redirect($requestUrl . 'code/' . $code . '/param/' . $param);
 }
-echo $accessToken;
+
+/**
+ * Generate Access Token
+ */
+function generateAccessToken()
+{
+	/**
+	 * Get code from Request
+	 * Set code to Server
+	 *
+	 * @uses Server::setCode()
+	 */
+	$server = new Server();
+	$server->setCode(base64_decode($_POST['code']));
+
+	/**
+	 * Set Secret Key
+	 * The same that is provided to Client
+	 *
+	 * @uses Server::setSecretKey()
+	 */
+	$server->setSecretKey('abcd1234');
+
+	//Set Hash Key
+	$server->setHashKey();
+
+	//Compare Hash Key, generated by the server and sent by Client
+	$code = $server->checkHashKey($_POST['hashKey']);
+
+	//Get Access Token if Hash Key is same
+	if($code)
+	{
+		$accessToken = $server->getAccessToken();
+	}
+	echo $accessToken;
+}
 ?>
